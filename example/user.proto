@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+message Profile {
+  string city = 1;
+}
+
+message User {
+  int32 id = 1;
+  repeated string tags = 2;
+  Profile profile = 3;
+}

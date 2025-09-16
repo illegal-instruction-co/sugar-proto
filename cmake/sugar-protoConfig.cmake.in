@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/sugar-protoTargets.cmake")
+
+set(sugar-proto_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/include")
+
+set(sugar-proto_PLUGIN "${CMAKE_INSTALL_PREFIX}/bin/protoc-gen-sugar")
