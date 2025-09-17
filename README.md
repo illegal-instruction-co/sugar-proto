@@ -18,7 +18,7 @@ Instead of juggling with reflection and getters/setters everywhere, you get a co
 Build and install with:
 
 ```bash
-git clone https://github.com/yourname/sugar-proto.git
+git clone https://github.com/illegal-instruction-co/sugar-proto.git
 cd sugar-proto
 mkdir build && cd build
 cmake ..
