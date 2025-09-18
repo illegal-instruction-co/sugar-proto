@@ -30,6 +30,7 @@
 #include <utility>
 #include <ostream>
 
+
 namespace sugar {
 
 namespace detail {
@@ -78,7 +79,7 @@ inline constexpr bool is_unsigned_int_v =
 
 template <typename T>
 inline constexpr bool is_float_v = std::is_floating_point_v<std::decay_t<T>>;
-} 
+}
 
 template <typename MsgT> class MessageWrapped;
 
@@ -199,6 +200,13 @@ public:
       static_assert(sizeof(T) == 0, "unsupported FieldProxy read type");
   }
 
+  operator std::string_view() const requires std::is_same_v<T, std::string> {
+    auto *r = msg_.GetReflection();
+    if (field_.cpp_type() != google::protobuf::FieldDescriptor::CPPTYPE_STRING)
+      throw std::runtime_error("type mismatch");
+    return r->GetStringReference(msg_, &field_, nullptr);
+  }
+
   FieldProxy operator[](std::string_view) = delete;
 
 private:
@@ -207,9 +215,12 @@ private:
 };
 
 template <typename T>
-std::ostream& operator<<(std::ostream& os, const FieldProxy<T>& proxy) {
-  os << static_cast<T>(proxy);
-  return os;
+std::ostream& operator<<(std::ostream& os, const FieldProxy<T>& fp) {
+    if constexpr (std::is_same_v<T, std::string>) {
+        return os << static_cast<std::string>(fp);
+    } else {
+        return os << static_cast<T>(fp);
+    }
 }
 
 template <typename ElemT> class RepeatedProxy {
@@ -302,18 +313,56 @@ public:
     return *msg_.GetReflection()->AddMessage(&msg_, &field_);
   }
 
-  auto begin() {
-    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).begin();
-  }
-  auto end() {
-    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).end();
-  }
-  auto begin() const {
-    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).begin();
-  }
-  auto end() const {
-    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).end();
-  }
+  class iterator {
+  public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = ElemT;
+    using difference_type = int;
+    using pointer = void;
+    using reference = ElemT;
+
+    iterator(google::protobuf::Message *m,
+             const google::protobuf::FieldDescriptor *f, int i)
+        : msg_(m), field_(f), index_(i) {}
+
+    reference operator*() const {
+      auto *r = msg_->GetReflection();
+      if constexpr (std::is_same_v<ElemT, std::string>)
+        return r->GetRepeatedString(*msg_, field_, index_);
+      else if constexpr (detail::is_signed_int_v<ElemT>)
+        return static_cast<ElemT>(
+            r->GetRepeatedInt64(*msg_, field_, index_));
+      else if constexpr (detail::is_unsigned_int_v<ElemT>)
+        return static_cast<ElemT>(
+            r->GetRepeatedUInt64(*msg_, field_, index_));
+      else if constexpr (detail::is_float_v<ElemT>)
+        return static_cast<ElemT>(
+            r->GetRepeatedDouble(*msg_, field_, index_));
+      else if constexpr (std::is_same_v<ElemT, bool>)
+        return r->GetRepeatedBool(*msg_, field_, index_);
+      else
+        static_assert(sizeof(ElemT) == 0, "unsupported RepeatedProxy type");
+    }
+
+    iterator &operator++() {
+      ++index_;
+      return *this;
+    }
+
+    bool operator==(const iterator &other) const {
+      return index_ == other.index_;
+    }
+
+    bool operator!=(const iterator &other) const { return !(*this == other); }
+
+  private:
+    google::protobuf::Message *msg_;
+    const google::protobuf::FieldDescriptor *field_;
+    int index_;
+  };
+
+  iterator begin() { return iterator(&msg_, &field_, 0); }
+  iterator end() { return iterator(&msg_, &field_, size()); }
 
 private:
   google::protobuf::Message &msg_;
@@ -445,4 +494,4 @@ private:
   const google::protobuf::OneofDescriptor &oneof_;
 };
 
-} 
+}

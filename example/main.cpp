@@ -6,25 +6,34 @@
 
 using namespace std;
 
+void dump(int32_t id, string_view city) {
+  cout << "DUMP:" << endl;
+
+  cout << "id: " << id << endl;
+  cout << "city: " << city << endl;
+}
+
 int main() {
   User userRaw;
-  UserWrapped sugar(userRaw);
+  UserWrapped sugarUser(userRaw);
 
-  sugar.id = 123;
-  sugar.tags.push_back("cpp");
-  sugar.profile.city = "ISTANBUL";
+  sugarUser.id = 123;
+  sugarUser.tags.push_back("cpp");
+  sugarUser.profile.city = "ISTANBUL";
 
   // Read from raw
   cout << userRaw.DebugString() << endl;
 
   // Read from sugar wrapper
-  cout << "id: "<< sugar.id << endl;
+  cout << "id: "<< sugarUser.id << endl;
   cout << "tags: " << endl;
 
-  for (const auto&tag : sugar.tags) 
+  for (const auto&tag : sugarUser.tags) 
     cout << "  tag: " << tag << endl;
   
-  cout << "profile.city: "<< sugar.profile.city << endl;
+//  cout << "profile.city: "<< sugarUser.profile.city << endl;
   
+  dump(sugarUser.id, sugarUser.profile.city);
+
   return 0;
 }
