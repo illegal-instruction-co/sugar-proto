@@ -1,6 +1,7 @@
 #include "emit_header.h"
 
 #include <google/protobuf/descriptor.h>
+#include <google/protobuf/descriptor.pb.h>
 
 #include <ostream>
 #include <string>
@@ -84,10 +85,10 @@ static void emit_field_member(const FieldDescriptor *f, std::ostream &os) {
   }
 
   if (f->is_repeated()) {
-    if (f->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE)
+    if (f->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) {
       os << "    sugar::RepeatedProxy<" << f->message_type()->name()
          << "Wrapped> " << fname << ";\n";
-    else {
+    } else {
       std::string elemType = "void";
       switch (f->cpp_type()) {
       case FieldDescriptor::CPPTYPE_STRING:
@@ -167,6 +168,7 @@ static void emit_field_member(const FieldDescriptor *f, std::ostream &os) {
 }
 
 static void emit_ctor_init(const Descriptor *d, std::ostream &os) {
+  // 1) Normal ctor (Foo& m)
   os << "    explicit " << d->name() << "Wrapped(" << d->name() << "& m)\n";
   os << "        : _msg(m)";
   for (int i = 0; i < d->field_count(); ++i) {
@@ -174,35 +176,48 @@ static void emit_ctor_init(const Descriptor *d, std::ostream &os) {
     const std::string &fname = f->name();
     if (f->is_map())
       os << ",\n          " << fname
-         << "(m, *m.GetDescriptor()->FindFieldByName(\"" << fname << "\"))";
+         << "(_msg, *_msg.GetDescriptor()->FindFieldByName(\"" << fname
+         << "\"))";
     else if (f->is_repeated())
       os << ",\n          " << fname
-         << "(m, *m.GetDescriptor()->FindFieldByName(\"" << fname << "\"))";
+         << "(_msg, *_msg.GetDescriptor()->FindFieldByName(\"" << fname
+         << "\"))";
     else if (f->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE)
-      os << ",\n          " << fname << "(*m.mutable_" << fname << "())";
+      os << ",\n          " << fname << "(*_msg.mutable_" << fname << "())";
     else
       os << ",\n          " << fname
-         << "(m, *m.GetDescriptor()->FindFieldByName(\"" << fname << "\"))";
+         << "(_msg, *_msg.GetDescriptor()->FindFieldByName(\"" << fname
+         << "\"))";
   }
   for (int i = 0; i < d->oneof_decl_count(); ++i) {
     const auto *o = d->oneof_decl(i);
     os << ",\n          " << o->name()
-       << "_oneof(m, *m.GetDescriptor()->FindOneofByName(\"" << o->name()
+       << "(_msg, *_msg.GetDescriptor()->FindOneofByName(\"" << o->name()
        << "\"))";
   }
   os << " {}\n";
+
+  os << "    explicit " << d->name()
+     << "Wrapped(google::protobuf::Message& m)\n"
+     << "        : " << d->name()
+     << "Wrapped(*google::protobuf::internal::DownCast<" << d->name()
+     << "*>(&m)) {}\n";
 }
 
 static void emit_oneofs(const Descriptor *d, std::ostream &os) {
   for (int i = 0; i < d->oneof_decl_count(); ++i) {
     const auto *o = d->oneof_decl(i);
-    os << "    sugar::OneofProxy " << o->name() << "_oneof;\n";
+    os << "    sugar::OneofProxy " << o->name() << ";\n";
   }
 }
 
 static void emit_message_wrapper(const Descriptor *d, std::ostream &os) {
-  for (int i = 0; i < d->nested_type_count(); ++i)
-    os << "struct " << d->nested_type(i)->name() << "Wrapped;\n";
+  for (int i = 0; i < d->nested_type_count(); ++i) {
+    const auto *nested = d->nested_type(i);
+    if (nested->options().map_entry())
+      continue;
+    os << "struct " << nested->name() << "Wrapped;\n";
+  }
 
   os << "struct " << d->name() << "Wrapped {\n";
   os << "    " << d->name() << "& _msg;\n";
@@ -214,8 +229,12 @@ static void emit_message_wrapper(const Descriptor *d, std::ostream &os) {
   emit_ctor_init(d, os);
   os << "};\n\n";
 
-  for (int i = 0; i < d->nested_type_count(); ++i)
-    emit_message_wrapper(d->nested_type(i), os);
+  for (int i = 0; i < d->nested_type_count(); ++i) {
+    const auto *nested = d->nested_type(i);
+    if (nested->options().map_entry())
+      continue;
+    emit_message_wrapper(nested, os);
+  }
 }
 
 void emit_header_for_file(const google::protobuf::FileDescriptor *file,

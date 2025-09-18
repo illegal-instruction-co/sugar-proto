@@ -17,19 +17,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/reflection.h>
 
 #include <cstdint>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#include <ostream>
-
 
 namespace sugar {
 
@@ -79,7 +78,7 @@ inline constexpr bool is_unsigned_int_v =
 
 template <typename T>
 inline constexpr bool is_float_v = std::is_floating_point_v<std::decay_t<T>>;
-}
+} // namespace detail
 
 template <typename MsgT> class MessageWrapped;
 
@@ -148,14 +147,16 @@ public:
       break;
     case FD::CPPTYPE_ENUM:
       if constexpr (detail::is_signed_int_v<V> ||
-                    detail::is_unsigned_int_v<V>) {
+                    detail::is_unsigned_int_v<V> ||
+                    std::is_enum_v<std::decay_t<V>>) {
         const int n = static_cast<int>(v);
         const auto *ev = field_.enum_type()->FindValueByNumber(n);
         if (!ev)
           throw std::runtime_error("invalid enum value");
         r->SetEnum(&msg_, &field_, ev);
-      } else
-        throw std::runtime_error("type mismatch: expected enum number");
+      } else {
+        throw std::runtime_error("type mismatch: expected enum or number");
+      }
       break;
     case FD::CPPTYPE_MESSAGE:
       throw std::runtime_error("assign to message not allowed");
@@ -200,7 +201,9 @@ public:
       static_assert(sizeof(T) == 0, "unsupported FieldProxy read type");
   }
 
-  operator std::string_view() const requires std::is_same_v<T, std::string> {
+  operator std::string_view() const
+    requires std::is_same_v<T, std::string>
+  {
     auto *r = msg_.GetReflection();
     if (field_.cpp_type() != google::protobuf::FieldDescriptor::CPPTYPE_STRING)
       throw std::runtime_error("type mismatch");
@@ -215,12 +218,12 @@ private:
 };
 
 template <typename T>
-std::ostream& operator<<(std::ostream& os, const FieldProxy<T>& fp) {
-    if constexpr (std::is_same_v<T, std::string>) {
-        return os << static_cast<std::string>(fp);
-    } else {
-        return os << static_cast<T>(fp);
-    }
+std::ostream &operator<<(std::ostream &os, const FieldProxy<T> &fp) {
+  if constexpr (std::is_same_v<T, std::string>) {
+    return os << static_cast<std::string>(fp);
+  } else {
+    return os << static_cast<T>(fp);
+  }
 }
 
 template <typename ElemT> class RepeatedProxy {
@@ -234,6 +237,20 @@ public:
 
   [[nodiscard]] int size() const noexcept {
     return msg_.GetReflection()->FieldSize(msg_, &field_);
+  }
+
+  [[nodiscard]] bool empty() const noexcept { return size() == 0; }
+
+  template <typename Fn>
+  void push_back(Fn &&init)
+    requires std::is_invocable_v<Fn, ElemT>
+  {
+    if (field_.cpp_type() != google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE)
+      throw std::runtime_error("push_back(Fn) only for message fields");
+
+    auto *sub = msg_.GetReflection()->AddMessage(&msg_, &field_);
+    ElemT wrapper(*sub);
+    std::forward<Fn>(init)(wrapper);
   }
 
   template <typename V> void push_back(V &&v) {
@@ -298,9 +315,16 @@ public:
         const auto *ev = field_.enum_type()->FindValueByNumber(n);
         if (!ev)
           throw std::runtime_error("invalid enum value");
-        r->AddEnum(&msg_, &field_, ev);
-      } else
-        throw std::runtime_error("type mismatch: expected enum number");
+        r->SetEnum(&msg_, &field_, ev);
+      } else if constexpr (std::is_enum_v<std::decay_t<V>>) {
+        const int n = static_cast<int>(v);
+        const auto *ev = field_.enum_type()->FindValueByNumber(n);
+        if (!ev)
+          throw std::runtime_error("invalid enum value");
+        r->SetEnum(&msg_, &field_, ev);
+      } else {
+        throw std::runtime_error("type mismatch: expected enum or number");
+      }
       break;
     case FD::CPPTYPE_MESSAGE:
       throw std::runtime_error("use add_message() for repeated message");
@@ -313,6 +337,127 @@ public:
     return *msg_.GetReflection()->AddMessage(&msg_, &field_);
   }
 
+  template <typename V> void set(int idx, V &&v) {
+    auto *r = msg_.GetReflection();
+    using FD = google::protobuf::FieldDescriptor;
+    switch (field_.cpp_type()) {
+    case FD::CPPTYPE_INT32:
+      if constexpr (detail::is_signed_int_v<V>)
+        r->SetRepeatedInt32(&msg_, &field_, idx, static_cast<int32_t>(v));
+      else
+        throw std::runtime_error("type mismatch: expected int32");
+      break;
+    case FD::CPPTYPE_INT64:
+      if constexpr (detail::is_signed_int_v<V>)
+        r->SetRepeatedInt64(&msg_, &field_, idx, static_cast<int64_t>(v));
+      else
+        throw std::runtime_error("type mismatch: expected int64");
+      break;
+    case FD::CPPTYPE_UINT32:
+      if constexpr (detail::is_unsigned_int_v<V>)
+        r->SetRepeatedUInt32(&msg_, &field_, idx, static_cast<uint32_t>(v));
+      else
+        throw std::runtime_error("type mismatch: expected uint32");
+      break;
+    case FD::CPPTYPE_UINT64:
+      if constexpr (detail::is_unsigned_int_v<V>)
+        r->SetRepeatedUInt64(&msg_, &field_, idx, static_cast<uint64_t>(v));
+      else
+        throw std::runtime_error("type mismatch: expected uint64");
+      break;
+    case FD::CPPTYPE_FLOAT:
+      if constexpr (detail::is_float_v<V> || detail::is_signed_int_v<V> ||
+                    detail::is_unsigned_int_v<V>)
+        r->SetRepeatedFloat(&msg_, &field_, idx, static_cast<float>(v));
+      else
+        throw std::runtime_error("type mismatch: expected float-like");
+      break;
+    case FD::CPPTYPE_DOUBLE:
+      if constexpr (detail::is_float_v<V> || detail::is_signed_int_v<V> ||
+                    detail::is_unsigned_int_v<V>)
+        r->SetRepeatedDouble(&msg_, &field_, idx, static_cast<double>(v));
+      else
+        throw std::runtime_error("type mismatch: expected double-like");
+      break;
+    case FD::CPPTYPE_BOOL:
+      if constexpr (std::is_same_v<std::decay_t<V>, bool> ||
+                    detail::is_signed_int_v<V> || detail::is_unsigned_int_v<V>)
+        r->SetRepeatedBool(&msg_, &field_, idx, static_cast<bool>(v));
+      else
+        throw std::runtime_error("type mismatch: expected bool-like");
+      break;
+    case FD::CPPTYPE_STRING:
+      if constexpr (detail::is_string_like_v<V>)
+        r->SetRepeatedString(&msg_, &field_, idx,
+                             detail::to_string_any(std::forward<V>(v)));
+      else
+        throw std::runtime_error("type mismatch: expected string");
+      break;
+    case FD::CPPTYPE_ENUM:
+      if constexpr (detail::is_signed_int_v<V> ||
+                    detail::is_unsigned_int_v<V>) {
+        const int n = static_cast<int>(v);
+        const auto *ev = field_.enum_type()->FindValueByNumber(n);
+        if (!ev)
+          throw std::runtime_error("invalid enum value");
+        r->SetRepeatedEnum(&msg_, &field_, idx, ev);
+      } else
+        throw std::runtime_error("type mismatch: expected enum number");
+      break;
+    case FD::CPPTYPE_MESSAGE:
+      throw std::runtime_error("set on repeated message element not supported; "
+                               "access submessage via operator[]");
+    }
+  }
+
+  ElemT at(int idx) const { return (*this)[idx]; }
+
+  ElemT operator[](int idx) const {
+    auto *r = msg_.GetReflection();
+    using FD = google::protobuf::FieldDescriptor;
+    if (idx < 0 || idx >= r->FieldSize(msg_, &field_))
+      throw std::out_of_range("repeated index out of range");
+
+    if constexpr (std::is_same_v<ElemT, std::string>) {
+      return r->GetRepeatedString(msg_, &field_, idx);
+    } else if constexpr (std::is_same_v<ElemT, bool>) {
+      return r->GetRepeatedBool(msg_, &field_, idx);
+    } else if constexpr (detail::is_signed_int_v<ElemT>) {
+      if (field_.cpp_type() == FD::CPPTYPE_INT32)
+        return static_cast<ElemT>(r->GetRepeatedInt32(msg_, &field_, idx));
+      if (field_.cpp_type() == FD::CPPTYPE_INT64)
+        return static_cast<ElemT>(r->GetRepeatedInt64(msg_, &field_, idx));
+      if (field_.cpp_type() == FD::CPPTYPE_ENUM)
+        return static_cast<ElemT>(
+            r->GetRepeatedEnum(msg_, &field_, idx)->number());
+      throw std::runtime_error("type mismatch for signed integer ElemT");
+    } else if constexpr (detail::is_unsigned_int_v<ElemT>) {
+      if (field_.cpp_type() == FD::CPPTYPE_UINT32)
+        return static_cast<ElemT>(r->GetRepeatedUInt32(msg_, &field_, idx));
+      if (field_.cpp_type() == FD::CPPTYPE_UINT64)
+        return static_cast<ElemT>(r->GetRepeatedUInt64(msg_, &field_, idx));
+      throw std::runtime_error("type mismatch for unsigned integer ElemT");
+    } else if constexpr (detail::is_float_v<ElemT>) {
+      if (field_.cpp_type() == FD::CPPTYPE_FLOAT)
+        return static_cast<ElemT>(r->GetRepeatedFloat(msg_, &field_, idx));
+      if (field_.cpp_type() == FD::CPPTYPE_DOUBLE)
+        return static_cast<ElemT>(r->GetRepeatedDouble(msg_, &field_, idx));
+      throw std::runtime_error("type mismatch for float ElemT");
+    } else if constexpr (std::is_constructible_v<ElemT,
+                                                 google::protobuf::Message &>) {
+      auto *sub = r->MutableRepeatedMessage(&msg_, &field_, idx);
+      return ElemT(*sub);
+    } else if constexpr (std::is_class_v<ElemT>) {
+      auto *sub = r->MutableRepeatedMessage(&msg_, &field_, idx);
+      return ElemT(*sub);
+    } else {
+      static_assert(sizeof(ElemT) == 0, "unsupported ElemT for repeated field");
+    }
+  }
+
+  ElemT front() const { return (*this)[0]; }
+  ElemT back() const { return (*this)[size() - 1]; }
+
   class iterator {
   public:
     using iterator_category = std::forward_iterator_tag;
@@ -321,48 +466,22 @@ public:
     using pointer = void;
     using reference = ElemT;
 
-    iterator(google::protobuf::Message *m,
-             const google::protobuf::FieldDescriptor *f, int i)
-        : msg_(m), field_(f), index_(i) {}
-
-    reference operator*() const {
-      auto *r = msg_->GetReflection();
-      if constexpr (std::is_same_v<ElemT, std::string>)
-        return r->GetRepeatedString(*msg_, field_, index_);
-      else if constexpr (detail::is_signed_int_v<ElemT>)
-        return static_cast<ElemT>(
-            r->GetRepeatedInt64(*msg_, field_, index_));
-      else if constexpr (detail::is_unsigned_int_v<ElemT>)
-        return static_cast<ElemT>(
-            r->GetRepeatedUInt64(*msg_, field_, index_));
-      else if constexpr (detail::is_float_v<ElemT>)
-        return static_cast<ElemT>(
-            r->GetRepeatedDouble(*msg_, field_, index_));
-      else if constexpr (std::is_same_v<ElemT, bool>)
-        return r->GetRepeatedBool(*msg_, field_, index_);
-      else
-        static_assert(sizeof(ElemT) == 0, "unsupported RepeatedProxy type");
-    }
-
+    iterator(const RepeatedProxy *owner, int i) : owner_(owner), index_(i) {}
+    reference operator*() const { return (*owner_)[index_]; }
     iterator &operator++() {
       ++index_;
       return *this;
     }
-
-    bool operator==(const iterator &other) const {
-      return index_ == other.index_;
-    }
-
-    bool operator!=(const iterator &other) const { return !(*this == other); }
+    bool operator==(const iterator &o) const { return index_ == o.index_; }
+    bool operator!=(const iterator &o) const { return !(*this == o); }
 
   private:
-    google::protobuf::Message *msg_;
-    const google::protobuf::FieldDescriptor *field_;
+    const RepeatedProxy *owner_;
     int index_;
   };
 
-  iterator begin() { return iterator(&msg_, &field_, 0); }
-  iterator end() { return iterator(&msg_, &field_, size()); }
+  iterator begin() const { return iterator(this, 0); }
+  iterator end() const { return iterator(this, size()); }
 
 private:
   google::protobuf::Message &msg_;
@@ -494,4 +613,4 @@ private:
   const google::protobuf::OneofDescriptor &oneof_;
 };
 
-}
+} // namespace sugar
