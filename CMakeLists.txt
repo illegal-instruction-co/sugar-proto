@@ -20,6 +20,7 @@ target_link_libraries(protoc-gen-sugar PRIVATE
 include(GNUInstallDirs)
 
 install(TARGETS protoc-gen-sugar
+    EXPORT sugar-protoTargets
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
