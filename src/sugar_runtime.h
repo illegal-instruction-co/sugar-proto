@@ -17,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+ 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/reflection.h>
@@ -28,6 +28,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <ostream>
 
 namespace sugar {
 
@@ -77,7 +78,7 @@ inline constexpr bool is_unsigned_int_v =
 
 template <typename T>
 inline constexpr bool is_float_v = std::is_floating_point_v<std::decay_t<T>>;
-} // namespace detail
+} 
 
 template <typename MsgT> class MessageWrapped;
 
@@ -205,6 +206,12 @@ private:
   const google::protobuf::FieldDescriptor &field_;
 };
 
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const FieldProxy<T>& proxy) {
+  os << static_cast<T>(proxy);
+  return os;
+}
+
 template <typename ElemT> class RepeatedProxy {
 public:
   RepeatedProxy(google::protobuf::Message &m,
@@ -293,6 +300,19 @@ public:
     if (field_.cpp_type() != google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE)
       throw std::runtime_error("add_message only for message");
     return *msg_.GetReflection()->AddMessage(&msg_, &field_);
+  }
+
+  auto begin() {
+    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).begin();
+  }
+  auto end() {
+    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).end();
+  }
+  auto begin() const {
+    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).begin();
+  }
+  auto end() const {
+    return msg_.GetReflection()->GetRepeatedFieldRef<ElemT>(msg_, &field_).end();
   }
 
 private:
@@ -425,4 +445,4 @@ private:
   const google::protobuf::OneofDescriptor &oneof_;
 };
 
-} // namespace sugar
+} 

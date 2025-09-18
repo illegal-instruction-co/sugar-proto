@@ -14,7 +14,17 @@ int main() {
   sugar.tags.push_back("cpp");
   sugar.profile.city = "ISTANBUL";
 
+  // Read from raw
   cout << userRaw.DebugString() << endl;
 
+  // Read from sugar wrapper
+  cout << "id: "<< sugar.id << endl;
+  cout << "tags: " << endl;
+
+  for (const auto&tag : sugar.tags) 
+    cout << "  tag: " << tag << endl;
+  
+  cout << "profile.city: "<< sugar.profile.city << endl;
+  
   return 0;
 }
