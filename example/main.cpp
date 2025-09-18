@@ -17,7 +17,7 @@ int main() {
 
   // primitives
   sugar.id = 123;
-  sugar.name = "berkay";
+  sugar.name = "john doe";
   sugar.active = true;
   sugar.score = 98.7;
   sugar.status = Status::OK;
