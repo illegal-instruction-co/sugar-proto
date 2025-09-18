@@ -9,6 +9,10 @@ Using the default protobuf C++ API can feel verbose and rigid. With sugar-proto,
 u.id = 123;
 u.tags.push_back("cpp");
 u.profile.city = "Berlin";
+
+cout << u.id << endl;
+cout << u.tags[0] << endl;
+cout << u.profile.city << endl;
 ```  
 
 Instead of juggling with reflection and getters/setters everywhere, you get a concise and readable interface.  
@@ -87,6 +91,10 @@ int main() {
     u.tags.push_back("test");
 
     std::cout << msg.DebugString() << std::endl;
+
+    std::cout << u.id << std::endl;
+    std::cout << u.name << std::endl;
+
     return 0;
 }
 ```
