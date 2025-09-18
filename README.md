@@ -1,6 +1,6 @@
 # sugar-proto
 
-`sugar-proto` is a lightweight wrapper and plugin for Protocol Buffers. The main goal is to make working with protobuf in C++ feel simpler and more intuitive, closer to JSON-style APIs.  
+`sugar-proto` is a lightweight wrapper and plugin for Protocol Buffers. The main goal is to make working with protobuf in C++ feel simpler and more intuitive, closer to plain struct and stl like APIs.  
 
 ## Why
 Using the default protobuf C++ API can feel verbose and rigid. With sugar-proto, you can interact with your messages in a much friendlier way, for example:
