@@ -1,5 +1,7 @@
 # sugar-proto
 
+[![codecov](https://codecov.io/gh/illegal-instruction-co/sugar-proto/branch/main/graph/badge.svg)](https://codecov.io/gh/illegal-instruction-co/sugar-proto)
+
 `sugar-proto` is a lightweight wrapper and plugin for Protocol Buffers. The main goal is to make working with protobuf in C++ feel simpler and more intuitive, closer to plain struct and stl like APIs.  
 
 ## Why

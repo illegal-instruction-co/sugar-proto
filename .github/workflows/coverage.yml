@@ -11,10 +11,21 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc g++ gcovr
+          sudo apt-get install -y \
+            cmake gcc g++ gcovr \
+            protobuf-compiler libprotobuf-dev
 
       - name: Run coverage
         run: ./coverage.sh
+
+      - name: Generate XML for Codecov
+        run: |
+          mkdir -p build/coverage
+          gcovr -r . build \
+            --filter 'src/.*' \
+            --exclude 'test/.*' \
+            --exclude 'generated/.*' \
+            --xml-pretty > build/coverage/coverage.xml
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
@@ -22,17 +33,7 @@ jobs:
           name: coverage-report
           path: build/coverage
 
-      - name: Parse coverage percentage
-        id: cov
-        run: |
-          pct=$(grep -Po 'lines: \K[0-9]+' build/coverage/coverage.txt | head -1)
-          echo "coverage=$pct" >> $GITHUB_ENV
-          echo "Coverage: $pct%"
-
-      - name: Set PR status with coverage
-        if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          message: |
-            Test Coverage: ${{ env.coverage }}%
-            Detailed report: (`coverage-report/coverage.html`)
+          files: build/coverage/coverage.xml

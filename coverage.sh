@@ -33,7 +33,14 @@ gcovr -r . "$BUILD_DIR" \
   --exclude 'generated/.*' \
   --html --html-details -o "$COV_DIR/coverage.html"
 
+gcovr -r . "$BUILD_DIR" \
+  --filter 'src/.*' \
+  --exclude 'test/.*' \
+  --exclude 'generated/.*' \
+  --xml -o "$COV_DIR/coverage.xml"
+
 echo
 echo "Coverage reports generated in: $COV_DIR"
 echo " - Console summary: $COV_DIR/coverage.txt"
 echo " - HTML report   : $COV_DIR/coverage.html"
+echo " - XML report    : $COV_DIR/coverage.xml"
