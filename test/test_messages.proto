@@ -1,0 +1,74 @@
+syntax = "proto3";
+package mypkg;
+
+enum MyEnum {
+  ZERO = 0;
+  ONE = 1;
+  COLOR_RED = 2;
+  COLOR_BLUE = 3;
+}
+
+message Child {
+  string child_str = 1;
+}
+
+message Top {
+  map<string, int32> string_to_int32 = 1;
+  map<uint64, Child> u64_to_child = 2;
+  repeated Child repeated_child = 3;
+  repeated double vals_double = 4;
+  Child child = 5;
+  string s = 6;
+  int32 i32 = 7;
+  int64 i64 = 8;
+  uint32 u32 = 9;
+  uint64 u64 = 10;
+  bool b = 11;
+  float f = 12;
+  double d = 13;
+  MyEnum e = 14;
+
+  oneof choice {
+    string o_s = 15;
+    int32 o_i32 = 16;
+  }
+
+  message Nested {
+    int32 n = 1;
+  }
+
+  map<int32, string> m_i32_str = 20;
+  map<int64, double> m_i64_dbl = 21;
+  map<uint32, bool> m_u32_bool = 22;
+  map<bool, uint64> m_bool_u64 = 23;
+  map<int32, MyEnum> m_i32_enum = 24;
+  map<uint32, float> m_u32_float = 25;
+  map<string, int64> m_str_i64 = 26;
+  map<uint64, uint32> m_u64_u32 = 27;
+
+  repeated string r_str = 30;
+  repeated int32 r_i32 = 31;
+  repeated int64 r_i64 = 32;
+  repeated uint32 r_u32 = 33;
+  repeated uint64 r_u64 = 34;
+  repeated bool r_bool = 35;
+  repeated float r_f = 36;
+  repeated MyEnum r_enum = 37;
+
+  int32 s_i32 = 40;
+  int64 s_i64 = 41;
+  uint32 s_u32 = 42;
+  uint64 s_u64 = 43;
+  bool s_b = 44;
+  float s_f = 45;
+  double s_d = 46;
+  MyEnum s_enum = 47;
+
+  message Inner {
+    message Deeper {
+      int32 x = 1;
+    }
+    Deeper deep = 1;
+  }
+  Inner inner = 50;
+}

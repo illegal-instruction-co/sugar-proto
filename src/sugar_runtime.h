@@ -491,7 +491,7 @@ private:
 template <typename K, typename V> class MapProxy {
 public:
   MapProxy(google::protobuf::Message &m,
-           const google::protobuf::FieldDescriptor &f) noexcept
+           const google::protobuf::FieldDescriptor &f)
       : msg_(m), field_(f) {
     if (!field_.is_map())
       throw std::runtime_error("MapProxy on non-map field");

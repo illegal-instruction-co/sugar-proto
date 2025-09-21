@@ -6,12 +6,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Protobuf REQUIRED)
 
+option(BUILD_TESTS "Build the tests" ON)
+option(COVERAGE "Enable coverage reporting" OFF)
+
+if(COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Building with coverage flags")
+        add_compile_options(-O0 -g --coverage -fprofile-arcs -ftest-coverage)
+        add_link_options(--coverage)
+    endif()
+endif()
+
+add_library(protoc_gen_sugar_obj OBJECT src/protoc_gen_sugar.cpp)
+add_library(emit_header_obj OBJECT src/emit_header.cpp src/emit_header.h)
+
 add_executable(protoc-gen-sugar
-    src/protoc_gen_sugar.cpp
-    src/emit_header.cpp
-    src/emit_header.h
+    $<TARGET_OBJECTS:protoc_gen_sugar_obj>
+    $<TARGET_OBJECTS:emit_header_obj>
 )
-target_include_directories(protoc-gen-sugar PRIVATE ${Protobuf_INCLUDE_DIRS} src)
+target_include_directories(protoc-gen-sugar PRIVATE
+    ${Protobuf_INCLUDE_DIRS}
+    src
+)
 target_link_libraries(protoc-gen-sugar PRIVATE
     ${Protobuf_LIBRARIES}
     protobuf::libprotoc
@@ -48,3 +64,8 @@ install(FILES
 )
 
 add_subdirectory(example)
+
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()
