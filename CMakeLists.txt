@@ -29,7 +29,7 @@ target_include_directories(protoc-gen-sugar PRIVATE
     src
 )
 target_link_libraries(protoc-gen-sugar PRIVATE
-    ${Protobuf_LIBRARIES}
+    protobuf::libprotobuf
     protobuf::libprotoc
 )
 
