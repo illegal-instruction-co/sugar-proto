@@ -29,8 +29,8 @@ target_include_directories(protoc-gen-sugar PRIVATE
     src
 )
 target_link_libraries(protoc-gen-sugar PRIVATE
-    protobuf::libprotobuf
-    protobuf::libprotoc
+    ${Protobuf_LIBRARIES}
+    ${Protobuf_PROTOC_LIBRARIES}
 )
 
 include(GNUInstallDirs)
