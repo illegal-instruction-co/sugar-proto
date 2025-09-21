@@ -1,0 +1,38 @@
+name: Coverage
+
+on: [push, pull_request]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcc g++ gcovr
+
+      - name: Run coverage
+        run: ./coverage.sh
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage
+
+      - name: Parse coverage percentage
+        id: cov
+        run: |
+          pct=$(grep -Po 'lines: \K[0-9]+' build/coverage/coverage.txt | head -1)
+          echo "coverage=$pct" >> $GITHUB_ENV
+          echo "Coverage: $pct%"
+
+      - name: Set PR status with coverage
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            Test Coverage: ${{ env.coverage }}%
+            Detailed report: (`coverage-report/coverage.html`)
